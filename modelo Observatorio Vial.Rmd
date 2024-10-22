@@ -1,0 +1,101 @@
+---
+title: "Modelo Predictivo Siniestros Viales 2023 por hora"
+author: "Jose Mourglia"
+date: "2024-10-14"
+output:
+    prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introducción
+
+En este trabajo analizamos el dataset llamado Siniestros Viales del 2023 para hacer un modelo predictivo para saber que cantidad de siniestros pueden ocurrir bajo ciertas condiciones, primero se tomo como variable predictora hora y diazs de la semana pero lugo se agrego la variable luminosidad, lo que mejoro el rendimiento del modelo.
+
+lo primero que hago es cargar las librerias o paquetes que voy a utilizar
+
+```{r echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+library(dplyr)
+library(lubridate)
+library(randomForest)
+library(caret)
+```
+
+## Cargar el archivo CSV 
+
+```{r }
+
+setwd("C:/Users/jmour/Downloads/Observatorio Vial")
+df <- read.csv("feu-siniestros.csv")
+df$siniestro_hora <- hms::as_hms(df$siniestro_hora) # convierto la variable a formato hms
+```
+
+## Extraer la hora del día (sin minutos ni segundos) para usarla como variable predictora
+```{r}
+df <- df %>%
+  mutate(hora = hour(siniestro_hora))
+```
+
+## Agregar otra variable predictora. Por ejemplo, el día de la semana
+```{r}
+df <- df %>%
+  mutate(dia_semana = wday(siniestro_fecha, label = TRUE, abbr = TRUE))
+```
+
+## Agrupar por hora para obtener la cantidad de siniestros por hora
+```{r}
+df_model <- df %>%
+  group_by(hora, dia_semana,luminosidad) %>%
+  summarise(cantidad_siniestros = n())
+```
+
+## División en conjunto de entrenamiento (70%) y prueba (30%)
+```{r}
+set.seed(123)  # Para hacer reproducible la división
+trainIndex <- createDataPartition(df_model$cantidad_siniestros, p = 0.7, list = FALSE)
+
+df_train <- df_model[trainIndex, ]
+df_test <- df_model[-trainIndex, ]
+```
+
+## Entrenar un modelo Random Forest para predecir cantidad de siniestros por hora
+```{r}
+set.seed(123)
+modelo_rf <- randomForest(cantidad_siniestros ~ hora + dia_semana + luminosidad, data = df_train, ntree = 500,mtry=2)
+
+# Ver los resultados del modelo
+print(modelo_rf)
+```
+
+## Predecir sobre el conjunto de prueba
+```{r}
+predicciones <- predict(modelo_rf, newdata = df_test)
+predicciones
+```
+
+# Evaluar el rendimiento del modelo con métricas. como el RMSE (Error Cuadrático Medio) y R cuadrado)
+```{r}
+rmse <- sqrt(mean((df_test$cantidad_siniestros - predicciones)^2))
+cat("El RMSE del modelo es:", rmse)
+
+r_squared <- cor(df_test$cantidad_siniestros, predicciones)^2
+cat("El R² del modelo es:", r_squared)
+```
+## Ver las predicciones como ultima columna del test
+```{r}
+df_test$predicciones <- predicciones
+head(df_test)
+```
+
+## Conclusiones:
+
+El valor de 0.707 significa que el modelo puede explicar el 70.7% de la variabilidad en la cantidad de siniestros. Esto es un buen indicador de que el modelo captura bien los patrones.
+El modelo puede predecir razonablemente la cantidad de siniestros viales en función de la hora, el día de la semana y la luminosidad.
+La adición de la variable "luminosidad" mejora el rendimiento, lo que indica que las condiciones de visibilidad influyen significativamente en la probabilidad de siniestros.
+De este modo las predicciones cercanas a 0 indican que existe un menor riesgo de siniestros viales.
+Este enfoque puede ser útil para la planificación de recursos, la prevención de accidentes en horarios o condiciones particulares, y la toma de decisiones por parte de las autoridades viales.

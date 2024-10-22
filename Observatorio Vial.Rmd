@@ -1,0 +1,108 @@
+---
+title: "Evaluacion de Siniestros Viales 2023"
+author: "Jose Mourglia"
+date: "2024-10-14"
+output:
+    prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introducción
+
+En este trabajo analizamos el dataset de el Sitio de Datos Abiertos de la Municipalidad de la ciudad de Corrientes llamado Siniestros Viales del 2023. Hacemos un EDA (Analisis Exploratorio de Datos) para mostrar los gráficos que creo puede ser de ayuda para los ciudadanos; analizamos la hora del dia donde se producen mayores siniestros, asi como tambien la presencia o no de carteleria en el lugar del siniestro y otras variables mas.
+
+lo primero que hago es cargar las librerias o paquetes que voy a utilizar
+
+```{r echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+#library(leaflet)
+#library(leaflet.extras)
+library(hms)
+```
+
+## Cargar archivo CSV 
+
+```{r }
+
+setwd("C:/Users/Los Mourglia/Downloads/Observatorio Vial")
+df <- read.csv("feu-siniestros.csv")
+```
+
+## Convertir columna de fechas y horas al formato adecuado
+
+```{r }
+df$siniestro_fecha <- as.Date(df$siniestro_fecha, format = "%Y-%m-%d")
+df$siniestro_hora <- hms::as_hms(df$siniestro_hora)
+```
+
+## 1. Distribución de siniestros por fecha
+```{r }
+glimpse(df)
+df %>%
+  count(siniestro_fecha) %>%
+  ggplot(aes(x = siniestro_fecha, y = n)) +
+  geom_line(color = "blue") +
+  labs(title = "Distribución de siniestros por fecha", x = "Fecha", y = "Cantidad de siniestros") +
+  theme_minimal()
+```
+
+## 2. Análisis de la zona de ocurrencia
+```{r}
+df %>%
+  count(zona_ocurrencia) %>%
+  ggplot(aes(x = reorder(zona_ocurrencia, -n), y = n)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Siniestros por zona de ocurrencia", x = "Zona", y = "Cantidad de siniestros") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## 3. Condiciones de señalización (Cartelería)
+```{r}
+df %>%
+  count(senalizacion_carteleria) %>%
+  ggplot(aes(x = reorder(senalizacion_carteleria, -n), y = n)) +
+  geom_bar(stat = "identity", fill = "green") +
+  labs(title = "Condiciones de señalización (Cartelería)", x = "Estado", y = "Cantidad de siniestros") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## 4. Siniestros por hora del dia
+```{r}
+df$siniestro_hora <- hms::as_hms(df$siniestro_hora)
+df <- df %>%
+  mutate(hora = hour(siniestro_hora))
+df %>%
+  count(hora) %>%
+  ggplot(aes(x = factor(hora), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = n), vjust = -0.5, color = "black") +
+  labs(title = "Cantidad de siniestros por hora del día", 
+       x = "Hora del día", 
+       y = "Cantidad de siniestros") +
+  theme_classic() +
+  scale_x_discrete(breaks = 0:23) +
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"))
+```
+
+## Conclusiones
+
+
+A lo largo del análisis de los siniestros viales en la ciudad de Corrientes durante 2023, se identificaron varios patrones:
+
+**Distribución de siniestros por fecha:** El gráfico de líneas muestra variaciones en la cantidad de siniestros a lo largo del año, lo que indica que ciertos meses o semanas presentan un mayor número de incidentes. Esto puede estar relacionado con factores estacionales o eventos específicos en la ciudad que podrían influir en el tráfico.
+
+**Siniestros por zona de ocurrencia:*** El gráfico de barras revela que algunas zonas de la ciudad registran un mayor número de siniestros. Este resultado es útil para identificar áreas críticas donde se deben concentrar esfuerzos de seguridad vial, incrementando la presencia de controles de tránsito.
+
+**Condiciones de señalización (Cartelería):** La presencia o ausencia de señalización en los lugares donde ocurrieron los siniestros es un factor clave. El análisis muestra que en muchas zonas no existe señalización adecuada, lo que podría ser un factor que contribuye a los accidentes.
+
+**Siniestros por hora del día:** La cantidad de siniestros varía significativamente según la hora del día, con picos en horas específicas. Este gráfico destaca los momentos del día donde es más probable que ocurran accidentes, lo que podría estar relacionado con patrones de tráfico o fatiga de los conductores. Las autoridades podrían usar esta información para ajustar los horarios de vigilancia en las calles.
